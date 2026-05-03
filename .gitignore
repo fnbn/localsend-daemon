@@ -1,1 +1,3 @@
 localsend-daemon.toml
+*/__pycache__
+.vscode

@@ -2,16 +2,18 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-
 from localsend_daemon.dependencies import get_identity
 from localsend_daemon.identity import Identity
-from localsend_daemon.models import DeviceInfo
+from localsend_daemon.models import DeviceInfo, PeerRegistration
 
 router = APIRouter(prefix="/api/localsend/v2")
 
 
-@router.get("/info")
-def get_info(identity: Annotated[Identity, Depends(get_identity)]) -> JSONResponse:
+@router.post("/register")
+def post_register(
+    peer: PeerRegistration,
+    identity: Annotated[Identity, Depends(get_identity)],
+) -> JSONResponse:
     body = DeviceInfo(
         alias=identity.alias,
         version=identity.version,
