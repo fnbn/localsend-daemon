@@ -15,6 +15,14 @@ class DeviceInfo(BaseModel):
     download: bool = False
 
 
+class AnnouncePacket(DeviceInfo):
+    """UDP multicast packet — DeviceInfo plus port, protocol, and announce flag."""
+
+    port: int
+    protocol: str
+    announce: bool
+
+
 class PeerRegistration(BaseModel):
     """Incoming peer identity from POST /register."""
 
