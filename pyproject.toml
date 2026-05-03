@@ -1,0 +1,25 @@
+[project]
+name = "localsend-daemon"
+version = "0.1.0"
+description = "Headless LocalSend Protocol v2.1 receive daemon"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+]
+
+[project.scripts]
+localsend-daemon = "localsend_daemon.main:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["localsend_daemon"]

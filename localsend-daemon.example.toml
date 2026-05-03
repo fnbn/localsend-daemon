@@ -1,0 +1,4 @@
+alias       = "My Server"
+port        = 53317
+receive_dir = "/tmp/localsend"
+pin         = "123456"
