@@ -1,10 +1,13 @@
 import asyncio
+import logging
 import tempfile
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+
+logger = logging.getLogger(__name__)
 
 from localsend_daemon.config import Config, load_config
 from localsend_daemon.identity import make_identity
@@ -21,6 +24,10 @@ async def lifespan(app: FastAPI):
     identity = app.state.identity
     await send_announce(identity)
     task = asyncio.create_task(listen(identity))
+    task.add_done_callback(
+        lambda t: logger.error("Multicast listener stopped: %s", t.exception(), exc_info=t.exception())
+        if not t.cancelled() and t.exception() else None
+    )
     yield
     task.cancel()
     with suppress(asyncio.CancelledError):
@@ -38,8 +45,9 @@ def create_app(config: Config, fingerprint: str | None = None) -> FastAPI:
     return app
 
 
-def run(config_path: str) -> None:
+def run(config_path: str, log_level: str = "ERROR") -> None:
     config = load_config(config_path)
+    uvicorn_log_level = log_level.lower()
 
     if config.protocol == "https":
         cert_pem, key_pem, cert_der = generate_cert()
@@ -56,7 +64,8 @@ def run(config_path: str) -> None:
                 port=config.port,
                 ssl_certfile=str(cert_path),
                 ssl_keyfile=str(key_path),
+                log_level=uvicorn_log_level,
             )
     else:
         app = create_app(config)
-        uvicorn.run(app, host="0.0.0.0", port=config.port)
+        uvicorn.run(app, host="0.0.0.0", port=config.port, log_level=uvicorn_log_level)

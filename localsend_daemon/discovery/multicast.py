@@ -63,14 +63,14 @@ class _AnnounceListener(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
+        logger.info("UDP packet from %s (%d bytes)", addr, len(data))
         asyncio.create_task(self._handle(data, addr))
 
     async def _handle(self, data: bytes, addr: tuple[str, int]) -> None:
-        logger.info('HAAAA')
         try:
             packet = AnnouncePacket.model_validate_json(data)
         except Exception:
-            logger.warning('Received multicast packet, but cannot parse announcement.')
+            logger.warning("Unparseable multicast packet from %s", addr)
             return
 
         if not packet.announce:
@@ -102,27 +102,16 @@ class _AnnounceListener(asyncio.DatagramProtocol):
             logger.debug("POST /register to %s failed: %s", url, e)
 
 
-def _make_listen_socket(port: int) -> socket.socket:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    try:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-    except AttributeError:
-        pass
-    sock.bind(("", port))
-    mreq = struct.pack("4sL", socket.inet_aton(MULTICAST_GROUP), socket.INADDR_ANY)
-    sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-    sock.setblocking(False)
-    return sock
-
-
 async def listen(identity: Identity) -> None:
     loop = asyncio.get_running_loop()
-    sock = _make_listen_socket(identity.port)
     transport, _ = await loop.create_datagram_endpoint(
         lambda: _AnnounceListener(identity),
-        sock=sock,
+        local_addr=("0.0.0.0", identity.port),
+        reuse_port=True,
     )
+    sock = transport.get_extra_info("socket")
+    mreq = struct.pack("4s4s", socket.inet_aton(MULTICAST_GROUP), socket.inet_aton("0.0.0.0"))
+    sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
     try:
         await asyncio.Future()
     finally:
