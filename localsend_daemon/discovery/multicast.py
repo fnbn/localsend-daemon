@@ -6,7 +6,7 @@ import time
 
 import httpx
 
-from localsend_daemon.identity import Identity
+from localsend_daemon.models import Identity
 from localsend_daemon.models import AnnouncePacket
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,6 @@ def _build_announce(identity: Identity, *, announce: bool) -> bytes:
         port=identity.port,
         protocol=identity.protocol,
         announce=announce,
-        announcement=announce,  # v1 backward compat
     )
     return packet.model_dump_json(by_alias=True, exclude_none=True).encode()
 
@@ -38,7 +37,7 @@ def _register_body(identity: Identity) -> dict:
         protocol=identity.protocol,
         announce=False,
     )
-    return packet.model_dump(by_alias=True, exclude_none=True, exclude={"announce", "announcement"})
+    return packet.model_dump(by_alias=True, exclude_none=True, exclude={"announce"})
 
 
 async def send_announce(identity: Identity) -> None:
@@ -67,12 +66,14 @@ class _AnnounceListener(asyncio.DatagramProtocol):
         asyncio.create_task(self._handle(data, addr))
 
     async def _handle(self, data: bytes, addr: tuple[str, int]) -> None:
+        logger.info('HAAAA')
         try:
             packet = AnnouncePacket.model_validate_json(data)
         except Exception:
+            logger.warning('Received multicast packet, but cannot parse announcement.')
             return
 
-        if not (packet.announce or packet.announcement):
+        if not packet.announce:
             return
         if packet.fingerprint == self.identity.fingerprint:
             return  # skip self

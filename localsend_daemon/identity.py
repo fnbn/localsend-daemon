@@ -1,20 +1,7 @@
 import uuid
-from pydantic import BaseModel
 
 from localsend_daemon.config import Config
-
-PROTOCOL_VERSION = "2.1"
-DEVICE_TYPE = "headless"
-PROTOCOL = "http"
-
-
-class Identity(BaseModel):
-    alias: str
-    version: str = PROTOCOL_VERSION
-    device_type: str = DEVICE_TYPE
-    fingerprint: str
-    port: int
-    protocol: str = PROTOCOL
+from localsend_daemon.models import Identity
 
 
 def make_identity(config: Config, fingerprint: str | None = None) -> Identity:

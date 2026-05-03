@@ -1,6 +1,18 @@
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
+PROTOCOL_VERSION = "2.1"
+DEVICE_TYPE = "headless"
+
+
+class Identity(BaseModel):
+    alias: str
+    version: str = PROTOCOL_VERSION
+    device_type: str = DEVICE_TYPE
+    fingerprint: str
+    port: int
+    protocol: str
+
 
 class DeviceInfo(BaseModel):
     """Wire-format device identity used in /info and /register responses."""
@@ -16,12 +28,33 @@ class DeviceInfo(BaseModel):
 
 
 class AnnouncePacket(DeviceInfo):
-    """UDP multicast packet — DeviceInfo plus port, protocol, and announce flags."""
+    """UDP multicast packet — DeviceInfo plus port, protocol, and announce flag."""
 
     port: int
     protocol: str
     announce: bool
-    announcement: bool | None = None  # v1 backward compat, mirrors announce
+
+
+class FileInfo(BaseModel):
+    """Metadata for a single file in a prepare-upload request body."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="ignore")
+
+    id: str
+    file_name: str
+    size: int
+    file_type: str
+    sha256: str | None = None
+    preview: str | None = None
+
+
+class PrepareRequest(BaseModel):
+    """Request body for POST /prepare-upload."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="ignore")
+
+    info: dict = {}
+    files: dict[str, FileInfo]
 
 
 class PeerRegistration(BaseModel):

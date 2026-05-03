@@ -12,6 +12,8 @@ from localsend_daemon import info
 from localsend_daemon.discovery import register
 from localsend_daemon.discovery.multicast import listen, send_announce
 from localsend_daemon.tls import cert_fingerprint, generate_cert
+from localsend_daemon.transfer import prepare
+from localsend_daemon.transfer.session import SessionStore
 
 
 @asynccontextmanager
@@ -27,9 +29,12 @@ async def lifespan(app: FastAPI):
 
 def create_app(config: Config, fingerprint: str | None = None) -> FastAPI:
     app = FastAPI(title="localsend-daemon", lifespan=lifespan)
+    app.state.config = config
     app.state.identity = make_identity(config, fingerprint)
+    app.state.session_store = SessionStore()
     app.include_router(info.router)
     app.include_router(register.router)
+    app.include_router(prepare.router)
     return app
 
 

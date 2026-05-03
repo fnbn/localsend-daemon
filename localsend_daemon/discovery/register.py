@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from localsend_daemon.dependencies import get_identity
-from localsend_daemon.identity import Identity
+from localsend_daemon.models import Identity
 from localsend_daemon.models import DeviceInfo, PeerRegistration
 
 router = APIRouter(prefix="/api/localsend/v2")
