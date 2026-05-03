@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from localsend_daemon.config import Config
 
-PROTOCOL_VERSION = "2.0"
+PROTOCOL_VERSION = "2.1"
 DEVICE_TYPE = "headless"
 PROTOCOL = "http"
 

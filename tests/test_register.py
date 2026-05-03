@@ -5,7 +5,7 @@ from localsend_daemon.server import create_app
 
 PEER = {
     "alias": "Sending Device",
-    "version": "2.0",
+    "version": "2.1",
     "deviceType": "mobile",
     "fingerprint": "peer-fingerprint",
     "port": 53317,
@@ -26,7 +26,7 @@ def test_register_status():
 def test_register_returns_own_identity():
     body = make_client().post("/api/localsend/v2/register", json=PEER).json()
     assert body["alias"] == "Test Device"
-    assert body["version"] == "2.0"
+    assert body["version"] == "2.1"
     assert body["deviceType"] == "headless"
     assert "fingerprint" in body
     assert body["download"] is False
@@ -39,6 +39,6 @@ def test_register_ignores_extra_fields():
 
 
 def test_register_without_optional_fields():
-    minimal = {"alias": "Peer", "version": "2.0", "fingerprint": "abc"}
+    minimal = {"alias": "Peer", "version": "2.1", "fingerprint": "abc"}
     r = make_client().post("/api/localsend/v2/register", json=minimal)
     assert r.status_code == 200

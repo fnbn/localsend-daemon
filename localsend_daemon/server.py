@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 import uvicorn
 from fastapi import FastAPI
@@ -7,13 +8,18 @@ from localsend_daemon.config import Config, load_config
 from localsend_daemon.identity import make_identity
 from localsend_daemon import info
 from localsend_daemon.discovery import register
-from localsend_daemon.discovery.multicast import send_announce
+from localsend_daemon.discovery.multicast import listen, send_announce
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await send_announce(app.state.identity)
+    identity = app.state.identity
+    await send_announce(identity)
+    task = asyncio.create_task(listen(identity))
     yield
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
 
 
 def create_app(config: Config) -> FastAPI:

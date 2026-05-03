@@ -17,7 +17,7 @@ def test_info_status():
 def test_info_shape():
     body = make_client().get("/api/localsend/v2/info").json()
     assert body["alias"] == "Test Device"
-    assert body["version"] == "2.0"
+    assert body["version"] == "2.1"
     assert body["deviceType"] == "headless"
     assert body["download"] is False
     assert "fingerprint" in body
