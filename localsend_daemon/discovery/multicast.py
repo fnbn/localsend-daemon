@@ -23,6 +23,7 @@ def _build_announce(identity: Identity, *, announce: bool) -> bytes:
         port=identity.port,
         protocol=identity.protocol,
         announce=announce,
+        announcement=announce,  # v1 backward compat
     )
     return packet.model_dump_json(by_alias=True, exclude_none=True).encode()
 
@@ -37,7 +38,7 @@ def _register_body(identity: Identity) -> dict:
         protocol=identity.protocol,
         announce=False,
     )
-    return packet.model_dump(by_alias=True, exclude_none=True, exclude={"announce"})
+    return packet.model_dump(by_alias=True, exclude_none=True, exclude={"announce", "announcement"})
 
 
 async def send_announce(identity: Identity) -> None:
@@ -57,6 +58,10 @@ class _AnnounceListener(asyncio.DatagramProtocol):
     def __init__(self, identity: Identity) -> None:
         self.identity = identity
         self._last_response: dict[str, float] = {}
+        self.transport: asyncio.DatagramTransport | None = None
+
+    def connection_made(self, transport: asyncio.DatagramTransport) -> None:
+        self.transport = transport
 
     def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
         asyncio.create_task(self._handle(data, addr))
@@ -67,7 +72,7 @@ class _AnnounceListener(asyncio.DatagramProtocol):
         except Exception:
             return
 
-        if not packet.announce:
+        if not (packet.announce or packet.announcement):
             return
         if packet.fingerprint == self.identity.fingerprint:
             return  # skip self
@@ -80,12 +85,20 @@ class _AnnounceListener(asyncio.DatagramProtocol):
         sender_ip, _ = addr
         logger.info("Received announce from %s:%d (%s)", sender_ip, packet.port, packet.alias)
 
+        # UDP response — works for peers that can't accept incoming TCP (e.g. iOS)
+        if self.transport:
+            self.transport.sendto(
+                _build_announce(self.identity, announce=False),
+                (MULTICAST_GROUP, self.identity.port),
+            )
+
+        # HTTP POST — primary response for peers that accept incoming connections
         url = f"{packet.protocol}://{sender_ip}:{packet.port}/api/localsend/v2/register"
         try:
             async with httpx.AsyncClient(timeout=5, verify=False) as client:
                 await client.post(url, json=_register_body(self.identity))
         except Exception as e:
-            logger.warning("POST /register to %s failed: %s", url, e)
+            logger.debug("POST /register to %s failed: %s", url, e)
 
 
 def _make_listen_socket(port: int) -> socket.socket:

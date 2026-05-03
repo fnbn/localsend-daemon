@@ -17,9 +17,10 @@ class Identity(BaseModel):
     protocol: str = PROTOCOL
 
 
-def make_identity(config: Config) -> Identity:
+def make_identity(config: Config, fingerprint: str | None = None) -> Identity:
     return Identity(
         alias=config.alias,
-        fingerprint=str(uuid.uuid4()),
+        fingerprint=fingerprint or str(uuid.uuid4()),
         port=config.port,
+        protocol=config.protocol,
     )

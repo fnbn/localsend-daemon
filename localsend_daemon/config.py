@@ -7,6 +7,7 @@ class Config(BaseModel):
     port: int = 53317
     receive_dir: str
     pin: str
+    protocol: str = "https"
 
 
 def load_config(path: str) -> Config:

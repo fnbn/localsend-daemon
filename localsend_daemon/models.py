@@ -16,11 +16,12 @@ class DeviceInfo(BaseModel):
 
 
 class AnnouncePacket(DeviceInfo):
-    """UDP multicast packet — DeviceInfo plus port, protocol, and announce flag."""
+    """UDP multicast packet — DeviceInfo plus port, protocol, and announce flags."""
 
     port: int
     protocol: str
     announce: bool
+    announcement: bool | None = None  # v1 backward compat, mirrors announce
 
 
 class PeerRegistration(BaseModel):
