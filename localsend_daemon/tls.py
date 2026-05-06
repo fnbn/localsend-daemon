@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1, generate_pri
 def generate_cert() -> tuple[bytes, bytes, bytes]:
     """Return (cert_pem, key_pem, cert_der) for a fresh self-signed certificate."""
     key = generate_private_key(SECP256R1())
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.UTC)
     name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, "localsend-daemon")])
     cert = (
         x509.CertificateBuilder()
