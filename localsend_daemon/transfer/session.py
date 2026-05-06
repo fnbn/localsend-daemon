@@ -63,7 +63,7 @@ class SessionStore:
             if s is None or s.session_id != session_id:
                 return False
             s.received_files.add(file_id)
-            if s.received_files >= s.files.keys():
+            if s.received_files == s.files.keys():
                 self._session = None
             return True
 
