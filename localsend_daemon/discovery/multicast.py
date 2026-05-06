@@ -40,8 +40,8 @@ def _register_body(identity: Identity) -> dict:
     return packet.model_dump(by_alias=True, exclude_none=True, exclude={"announce"})
 
 
-async def send_announce(identity: Identity) -> None:
-    data = _build_announce(identity, announce=True)
+async def send_announce(identity: Identity, *, announce: bool = True) -> None:
+    data = _build_announce(identity, announce=announce)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
     try:
@@ -87,7 +87,7 @@ class _AnnounceListener(asyncio.DatagramProtocol):
         logger.info("Received announce from %s:%d (%s)", sender_ip, packet.port, packet.alias)
 
         # UDP response — works for peers that can't accept incoming TCP
-        await send_announce(self.identity)
+        await send_announce(self.identity, announce=False)
 
         # HTTP POST — primary response for peers that accept incoming connections
         url = f"{packet.protocol}://{sender_ip}:{packet.port}/api/localsend/v2/register"
