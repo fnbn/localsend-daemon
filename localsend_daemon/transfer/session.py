@@ -1,6 +1,7 @@
 import asyncio
 import secrets
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from localsend_daemon.models import FileInfo
 
@@ -11,6 +12,7 @@ class SessionFile:
     size: int
     file_type: str
     token: str = field(default_factory=lambda: secrets.token_urlsafe(16))
+    dest_path: Path | None = None  # set by upload handler before writing
 
 
 @dataclass
@@ -18,6 +20,7 @@ class Session:
     session_id: str
     sender_ip: str
     files: dict[str, SessionFile]  # fileId -> SessionFile
+    received_files: set[str] = field(default_factory=set)
 
 
 class SessionStore:
@@ -51,6 +54,17 @@ class SessionStore:
     async def get_by_ip(self, sender_ip: str) -> Session | None:
         s = self._session
         return s if s and s.sender_ip == sender_ip else None
+
+    async def mark_file_done(self, session_id: str, file_id: str) -> bool:
+        """Mark file received. Returns True and clears session when all files are done."""
+        async with self._lock:
+            s = self._session
+            if s is None or s.session_id != session_id:
+                return False
+            s.received_files.add(file_id)
+            if s.received_files >= s.files.keys():
+                self._session = None
+            return True
 
     async def cancel(
         self, *, session_id: str | None = None, sender_ip: str | None = None

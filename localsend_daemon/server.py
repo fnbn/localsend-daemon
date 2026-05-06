@@ -15,7 +15,7 @@ from localsend_daemon import info
 from localsend_daemon.discovery import register
 from localsend_daemon.discovery.multicast import listen, send_announce
 from localsend_daemon.tls import cert_fingerprint, generate_cert
-from localsend_daemon.transfer import prepare
+from localsend_daemon.transfer import cancel, prepare, upload
 from localsend_daemon.transfer.session import SessionStore
 
 
@@ -42,6 +42,8 @@ def create_app(config: Config, fingerprint: str | None = None) -> FastAPI:
     app.include_router(info.router)
     app.include_router(register.router)
     app.include_router(prepare.router)
+    app.include_router(upload.router)
+    app.include_router(cancel.router)
     return app
 
 

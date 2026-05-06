@@ -86,12 +86,8 @@ class _AnnounceListener(asyncio.DatagramProtocol):
         sender_ip, _ = addr
         logger.info("Received announce from %s:%d (%s)", sender_ip, packet.port, packet.alias)
 
-        # UDP response — works for peers that can't accept incoming TCP (e.g. iOS)
-        if self.transport:
-            self.transport.sendto(
-                _build_announce(self.identity, announce=False),
-                (MULTICAST_GROUP, self.identity.port),
-            )
+        # UDP response — works for peers that can't accept incoming TCP
+        await send_announce(self.identity)
 
         # HTTP POST — primary response for peers that accept incoming connections
         url = f"{packet.protocol}://{sender_ip}:{packet.port}/api/localsend/v2/register"

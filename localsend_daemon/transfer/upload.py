@@ -48,6 +48,7 @@ async def upload(
 
     dest = _safe_dest(config.receive_dir, session_file.file_name)
     dest.parent.mkdir(parents=True, exist_ok=True)
+    session_file.dest_path = dest
 
     try:
         with dest.open("wb") as f:
