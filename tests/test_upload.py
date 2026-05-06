@@ -1,4 +1,5 @@
 import tempfile
+import threading
 from pathlib import Path
 
 import pytest
@@ -109,14 +110,64 @@ def test_upload_parallel_files(tmp_dir):
     session = prepare(client)
     sid = session["sessionId"]
 
-    responses = [
-        client.post(
+    statuses = {}
+
+    def do_upload(file_id, content):
+        r = client.post(
             "/api/localsend/v2/upload",
-            params={"sessionId": sid, "fileId": fid, "token": session["files"][fid]},
+            params={"sessionId": sid, "fileId": file_id, "token": session["files"][file_id]},
             content=content,
         )
-        for fid, content in [("f1", b"hello"), ("f2", b"data")]
+        statuses[file_id] = r.status_code
+
+    threads = [
+        threading.Thread(target=do_upload, args=("f1", b"hello")),
+        threading.Thread(target=do_upload, args=("f2", b"data")),
     ]
-    assert all(r.status_code == 200 for r in responses)
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert statuses == {"f1": 200, "f2": 200}
     assert (Path(tmp_dir) / "hello.txt").read_bytes() == b"hello"
     assert (Path(tmp_dir) / "img.png").read_bytes() == b"data"
+
+
+def test_upload_parallel_same_filename(tmp_dir):
+    """Two files with identical fileNames in one session both land on disk without clobbering."""
+    files = {
+        "f1": {"id": "f1", "fileName": "dup.txt", "size": 5, "fileType": "text/plain"},
+        "f2": {"id": "f2", "fileName": "dup.txt", "size": 3, "fileType": "text/plain"},
+    }
+    client = make_client(tmp_dir)
+    session = client.post(
+        "/api/localsend/v2/prepare-upload",
+        json={"info": {}, "files": files},
+        params={"pin": "123456"},
+    ).json()
+    sid = session["sessionId"]
+
+    statuses = {}
+
+    def do_upload(file_id, content):
+        r = client.post(
+            "/api/localsend/v2/upload",
+            params={"sessionId": sid, "fileId": file_id, "token": session["files"][file_id]},
+            content=content,
+        )
+        statuses[file_id] = r.status_code
+
+    threads = [
+        threading.Thread(target=do_upload, args=("f1", b"hello")),
+        threading.Thread(target=do_upload, args=("f2", b"bye")),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert statuses == {"f1": 200, "f2": 200}
+    names = {p.name for p in Path(tmp_dir).iterdir()}
+    assert "dup.txt" in names
+    assert "dup (1).txt" in names

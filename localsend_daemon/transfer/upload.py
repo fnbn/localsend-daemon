@@ -11,20 +11,24 @@ from localsend_daemon.transfer.session import SessionStore
 router = APIRouter(prefix="/api/localsend/v2")
 
 
-def _safe_dest(receive_dir: str, file_name: str) -> Path:
+def _open_dest(receive_dir: str, name: str):
+    """Atomically create a uniquely-named file. Returns (path, open file object)."""
     base = Path(receive_dir)
-    name = Path(file_name).name  # strip any directory components
-    dest = base / name
-    if not dest.exists():
-        return dest
+    base.mkdir(parents=True, exist_ok=True)
     stem = Path(name).stem
     suffix = Path(name).suffix
+    try:
+        path = base / name
+        return path, path.open("xb")
+    except FileExistsError:
+        pass
     counter = 1
     while True:
-        candidate = base / f"{stem} ({counter}){suffix}"
-        if not candidate.exists():
-            return candidate
-        counter += 1
+        path = base / f"{stem} ({counter}){suffix}"
+        try:
+            return path, path.open("xb")
+        except FileExistsError:
+            counter += 1
 
 
 @router.post("/upload", status_code=200)
@@ -46,12 +50,15 @@ async def upload(
     if session_file is None or session_file.token != token:
         raise HTTPException(status_code=403, detail="Invalid token or IP address")
 
-    dest = _safe_dest(config.receive_dir, session_file.file_name)
-    dest.parent.mkdir(parents=True, exist_ok=True)
+    name = Path(session_file.file_name).name
+    if not name or name in (".", ".."):
+        raise HTTPException(status_code=400, detail="Invalid file name")
+
+    dest, f = _open_dest(config.receive_dir, name)
     session_file.dest_path = dest
 
     try:
-        with dest.open("wb") as f:
+        with f:
             async for chunk in request.stream():
                 f.write(chunk)
     except Exception as e:
