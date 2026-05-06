@@ -171,3 +171,20 @@ def test_upload_parallel_same_filename(tmp_dir):
     names = {p.name for p in Path(tmp_dir).iterdir()}
     assert "dup.txt" in names
     assert "dup (1).txt" in names
+
+
+def test_upload_exceeds_declared_size(tmp_dir):
+    files = {"f1": {"id": "f1", "fileName": "small.txt", "size": 3, "fileType": "text/plain"}}
+    client = make_client(tmp_dir)
+    session = client.post(
+        "/api/localsend/v2/prepare-upload",
+        json={"info": {}, "files": files},
+        params={"pin": "123456"},
+    ).json()
+    r = client.post(
+        "/api/localsend/v2/upload",
+        params={"sessionId": session["sessionId"], "fileId": "f1", "token": session["files"]["f1"]},
+        content=b"toolarge",
+    )
+    assert r.status_code == 400
+    assert not (Path(tmp_dir) / "small.txt").exists()

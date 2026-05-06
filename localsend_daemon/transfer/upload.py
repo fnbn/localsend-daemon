@@ -56,14 +56,24 @@ async def upload(
 
     dest, f = _open_dest(config.receive_dir, name)
     session_file.dest_path = dest
+    received = 0
+    too_large = False
 
     try:
         with f:
             async for chunk in request.stream():
+                received += len(chunk)
+                if received > session_file.size:
+                    too_large = True
+                    break
                 f.write(chunk)
     except Exception as e:
         dest.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail="Unknown error by receiver") from e
+
+    if too_large:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="File exceeds declared size")
 
     await session_store.mark_file_done(session_id, file_id)
 
