@@ -12,9 +12,11 @@ from localsend_daemon.identity import make_identity
 from localsend_daemon import info
 from localsend_daemon.discovery import register
 from localsend_daemon.discovery.multicast import listen, send_announce
+from localsend_daemon.peers import PeerRegistry
 from localsend_daemon.tls import cert_fingerprint, generate_cert
 from localsend_daemon.transfer import cancel, prepare, upload
 from localsend_daemon.transfer.session import SessionStore
+from localsend_daemon.trust import TrustStore
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     identity = app.state.identity
+    peer_registry = app.state.peer_registry
     await send_announce(identity)
-    task = asyncio.create_task(listen(identity))
+    task = asyncio.create_task(listen(identity, peer_registry))
     task.add_done_callback(
         lambda t: logger.error("Multicast listener stopped: %s", t.exception(), exc_info=t.exception())
         if not t.cancelled() and t.exception() else None
@@ -39,6 +42,17 @@ def create_app(config: Config, fingerprint: str | None = None) -> FastAPI:
     app.state.config = config
     app.state.identity = make_identity(config, fingerprint)
     app.state.session_store = SessionStore()
+    app.state.peer_registry = PeerRegistry()
+
+    if config.trusted_fingerprints_path is not None:
+        if config.protocol == "https":
+            app.state.trust_store = TrustStore(Path(config.trusted_fingerprints_path))
+        else:
+            logger.warning(
+                "trusted_fingerprints_path is configured but protocol=http — "
+                "PIN bypass is disabled. Use protocol=https to enable fingerprint trust."
+            )
+
     app.include_router(info.router)
     app.include_router(register.router)
     app.include_router(prepare.router)

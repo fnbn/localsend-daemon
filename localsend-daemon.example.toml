@@ -2,3 +2,12 @@ alias       = "My Server"
 port        = 53317
 receive_dir = "/tmp/localsend"
 pin         = "123456"
+
+# Path to a file listing fingerprints (SHA-256 of peer cert, hex) that may
+# skip the PIN. If unset, the feature is disabled and the PIN is always
+# required. Only honored when protocol = "https".
+trusted_fingerprints_path = "/etc/localsend-daemon/trusted_fingerprints"
+
+# If true, after a successful PIN auth from an unknown peer, append that
+# peer's fingerprint to the trusted file. Default: false (manual curation).
+trust_on_first_pin = false

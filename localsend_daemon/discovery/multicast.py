@@ -6,8 +6,8 @@ import time
 
 import httpx
 
-from localsend_daemon.models import Identity
-from localsend_daemon.models import AnnouncePacket
+from localsend_daemon.models import AnnouncePacket, Identity
+from localsend_daemon.peers import PeerRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +54,9 @@ async def send_announce(identity: Identity, *, announce: bool = True) -> None:
 
 
 class _AnnounceListener(asyncio.DatagramProtocol):
-    def __init__(self, identity: Identity) -> None:
+    def __init__(self, identity: Identity, peer_registry: PeerRegistry | None) -> None:
         self.identity = identity
+        self._peer_registry = peer_registry
         self._last_response: dict[str, float] = {}
         self.transport: asyncio.DatagramTransport | None = None
 
@@ -86,6 +87,9 @@ class _AnnounceListener(asyncio.DatagramProtocol):
         sender_ip, _ = addr
         logger.info("Received announce from %s:%d (%s)", sender_ip, packet.port, packet.alias)
 
+        if self._peer_registry is not None:
+            self._peer_registry.register(sender_ip, packet.port)
+
         # UDP response — works for peers that can't accept incoming TCP
         await send_announce(self.identity, announce=False)
 
@@ -98,10 +102,10 @@ class _AnnounceListener(asyncio.DatagramProtocol):
             logger.debug("POST /register to %s failed: %s", url, e)
 
 
-async def listen(identity: Identity) -> None:
+async def listen(identity: Identity, peer_registry: PeerRegistry | None = None) -> None:
     loop = asyncio.get_running_loop()
     transport, _ = await loop.create_datagram_endpoint(
-        lambda: _AnnounceListener(identity),
+        lambda: _AnnounceListener(identity, peer_registry),
         local_addr=("0.0.0.0", identity.port),
         reuse_port=True,
     )
