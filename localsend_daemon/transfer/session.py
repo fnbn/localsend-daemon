@@ -49,12 +49,14 @@ class SessionStore:
             return self._session
 
     async def get_by_id(self, session_id: str) -> Session | None:
-        s = self._session
-        return s if s and s.session_id == session_id else None
+        async with self._lock:
+            s = self._session
+            return s if s and s.session_id == session_id else None
 
     async def get_by_ip(self, sender_ip: str) -> Session | None:
-        s = self._session
-        return s if s and s.sender_ip == sender_ip else None
+        async with self._lock:
+            s = self._session
+            return s if s and s.sender_ip == sender_ip else None
 
     async def mark_file_done(self, session_id: str, file_id: str) -> bool:
         """Mark file received. Returns True and clears session when all files are done."""
