@@ -7,8 +7,6 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
 
-logger = logging.getLogger(__name__)
-
 from localsend_daemon.config import Config, load_config
 from localsend_daemon.identity import make_identity
 from localsend_daemon import info
@@ -17,6 +15,8 @@ from localsend_daemon.discovery.multicast import listen, send_announce
 from localsend_daemon.tls import cert_fingerprint, generate_cert
 from localsend_daemon.transfer import cancel, prepare, upload
 from localsend_daemon.transfer.session import SessionStore
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager

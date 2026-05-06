@@ -25,7 +25,7 @@ def generate_cert() -> tuple[bytes, bytes, bytes]:
     cert_der = cert.public_bytes(serialization.Encoding.DER)
     key_pem = key.private_bytes(
         serialization.Encoding.PEM,
-        serialization.PrivateFormat.TraditionalOpenSSL,
+        serialization.PrivateFormat.PKCS8,
         serialization.NoEncryption(),
     )
     return cert_pem, key_pem, cert_der

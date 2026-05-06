@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 PROTOCOL_VERSION = "2.1"
@@ -53,7 +53,7 @@ class PrepareRequest(BaseModel):
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="ignore")
 
-    info: dict = {}
+    info: dict = Field(default_factory=dict)
     files: dict[str, FileInfo]
 
 
