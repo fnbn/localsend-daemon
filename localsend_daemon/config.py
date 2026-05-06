@@ -1,13 +1,15 @@
 import tomllib
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class Config(BaseModel):
     alias: str
-    port: int = 53317
+    port: int = Field(default=53317, ge=1, le=65535)
     receive_dir: str
     pin: str
-    protocol: str = "https"
+    protocol: Literal["http", "https"] = "https"
 
 
 def load_config(path: str) -> Config:
