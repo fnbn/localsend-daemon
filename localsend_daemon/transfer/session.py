@@ -21,6 +21,7 @@ class Session:
     sender_ip: str
     files: dict[str, SessionFile]  # fileId -> SessionFile
     received_files: set[str] = field(default_factory=set)
+    cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
 
 
 class SessionStore:
@@ -77,5 +78,6 @@ class SessionStore:
                 return None
             if sender_ip is not None and s.sender_ip != sender_ip:
                 return None
+            s.cancel_event.set()
             self._session = None
             return s

@@ -62,6 +62,8 @@ async def upload(
     try:
         with f:
             async for chunk in request.stream():
+                if session.cancel_event.is_set():
+                    break
                 received += len(chunk)
                 if received > session_file.size:
                     too_large = True
@@ -70,6 +72,10 @@ async def upload(
     except Exception as e:
         dest.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail="Unknown error by receiver") from e
+
+    if session.cancel_event.is_set():
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=409, detail="Blocked by another session")
 
     if too_large:
         dest.unlink(missing_ok=True)

@@ -62,3 +62,27 @@ def test_cancel_without_uploads(tmp_path):
     session = prepare(client)
     r = client.post("/api/localsend/v2/cancel", params={"sessionId": session["sessionId"]})
     assert r.status_code == 200
+
+
+def test_cancel_interrupts_in_flight_upload(tmp_path):
+    """Upload returns 409 and cleans up when cancel fires while the stream is in progress."""
+    files = {"f1": {"id": "f1", "fileName": "partial.txt", "size": 100, "fileType": "text/plain"}}
+    client = make_client(str(tmp_path))
+    session = client.post(
+        "/api/localsend/v2/prepare-upload",
+        json={"info": {}, "files": files},
+        params={"pin": "123456"},
+    ).json()
+
+    # Arm the cancel_event before the upload request so the handler sees it on the
+    # first chunk — simulating cancel racing ahead of an in-flight stream.
+    # set() only flips a bool (no awaiters), safe to call from the test thread.
+    client.app.state.session_store._session.cancel_event.set()
+
+    r = client.post(
+        "/api/localsend/v2/upload",
+        params={"sessionId": session["sessionId"], "fileId": "f1", "token": session["files"]["f1"]},
+        content=b"x" * 50,
+    )
+    assert r.status_code == 409
+    assert not (tmp_path / "partial.txt").exists()
