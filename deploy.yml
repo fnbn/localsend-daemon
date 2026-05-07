@@ -1,0 +1,128 @@
+---
+- name: Deploy localsend-daemon
+  hosts: python_app
+  become: yes
+  vars:
+    app_name: localsend-daemon
+    app_short_description: Headless LocalSend Protocol v2.1 receive daemon
+    repo_url: https://github.com/fnbn/localsend-daemon.git
+    app_dir: /opt/localsend-daemon
+    app_user: localsend-daemon
+    app_service: localsend-daemon.service
+    config_dir: /etc/localsend-daemon
+
+  tasks:
+
+  - name: Install Git and Python on Debian/Ubuntu
+    ansible.builtin.apt:
+      name:
+        - git
+        - python3-venv
+      state: present
+      update_cache: yes
+
+  - name: Ensure app user exists
+    ansible.builtin.user:
+      name: "{{ app_user }}"
+      system: yes
+      shell: /bin/false
+      groups: paperless
+      append: yes
+
+  - name: Ensure application directory exists
+    ansible.builtin.file:
+      path: "{{ app_dir }}"
+      state: directory
+      owner: "{{ app_user }}"
+      group: "{{ app_user }}"
+      mode: '0755'
+
+  - name: Ensure config directory exists
+    ansible.builtin.file:
+      path: "{{ config_dir }}"
+      state: directory
+      owner: "{{ app_user }}"
+      group: "{{ app_user }}"
+      mode: '0750'
+
+  - name: Check if the directory is already trusted
+    ansible.builtin.command:
+      cmd: git config --global --get safe.directory
+    become: yes
+    become_user: "{{ app_user }}"
+    register: git_safe_dirs
+    changed_when: false
+    failed_when: false
+
+  - name: Allow Git to trust the repo directory
+    ansible.builtin.command:
+      cmd: git config --global --add safe.directory {{ app_dir }}
+    become: yes
+    become_user: "{{ app_user }}"
+    when: "app_dir not in git_safe_dirs.stdout_lines"
+
+  - name: Clone or update the repo
+    ansible.builtin.git:
+      repo: "{{ repo_url }}"
+      dest: "{{ app_dir }}"
+      version: main
+      update: yes
+      force: yes
+    become: yes
+    become_user: "{{ app_user }}"
+    notify: Restart {{ app_name }} service
+
+  - name: Install localsend-daemon into virtualenv
+    ansible.builtin.pip:
+      name: "{{ app_dir }}"
+      virtualenv: "{{ app_dir }}/venv"
+      virtualenv_command: python3 -m venv
+    become: yes
+    become_user: "{{ app_user }}"
+    notify: Restart {{ app_name }} service
+
+  - name: Copy local config
+    ansible.builtin.copy:
+      src: ./localsend-daemon.toml
+      dest: "{{ config_dir }}/config.toml"
+      owner: "{{ app_user }}"
+      group: "{{ app_user }}"
+      mode: '0600'
+    notify: Restart {{ app_name }} service
+
+  - name: Copy trusted fingerprints
+    ansible.builtin.copy:
+      src: ./trusted_fingerprints
+      dest: "{{ config_dir }}/trusted_fingerprints"
+      owner: "{{ app_user }}"
+      group: "{{ app_user }}"
+      mode: '0600'
+    notify: Restart {{ app_name }} service
+
+  - name: Create systemd service file
+    ansible.builtin.template:
+      src: systemd_pythonapp.j2
+      dest: "/etc/systemd/system/{{ app_service }}"
+      mode: '0644'
+      owner: root
+      group: root
+    notify:
+      - Reload systemd
+      - Restart {{ app_name }} service
+
+  - name: Ensure {{ app_name }} service is enabled and running
+    ansible.builtin.systemd:
+      name: "{{ app_service }}"
+      enabled: yes
+      state: started
+
+  handlers:
+
+  - name: Reload systemd
+    ansible.builtin.systemd:
+      daemon_reload: yes
+
+  - name: Restart {{ app_name }} service
+    ansible.builtin.systemd:
+      name: "{{ app_service }}"
+      state: restarted

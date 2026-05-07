@@ -1,0 +1,14 @@
+[Unit]
+Description={{ app_short_description }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ app_user }}
+Group={{ app_user }}
+ExecStart={{ app_dir }}/venv/bin/{{ app_name }} {{ config_dir }}/config.toml
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
